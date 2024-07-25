@@ -1,5 +1,6 @@
 #[allow(unused_imports)]
 use std::io::{self, Write};
+use std::process;
 
 fn main() {
     loop {
@@ -11,8 +12,17 @@ fn main() {
         let mut input = String::new();
         stdin.read_line(&mut input).unwrap();
 
-        match input.trim_end().to_string() {
-            _ => eprintln!("{}: command not found", input.trim_end()),
+        let parsed_input: Vec<&str> = input.trim_end().split_whitespace().collect();
+
+        match parsed_input[0] {
+            "exit" => {
+                if let Some(status_code) = parsed_input.get(1) {
+                    let status_code = status_code.parse::<i32>().expect("invalid status code");
+                    process::exit(status_code);
+                }
+                process::exit(1);
+            }
+            _ => eprintln!("{}: command not found", parsed_input[0].trim_end()),
         }
     }
 }
