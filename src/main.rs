@@ -15,6 +15,10 @@ fn main() {
         let parsed_input: Vec<&str> = input.trim_end().split_whitespace().collect();
 
         match parsed_input[0] {
+            "echo" => {
+                let echo = parsed_input[1..].join(" ");
+                println!("{}", echo);
+            }
             "exit" => {
                 if let Some(status_code) = parsed_input.get(1) {
                     let status_code = status_code.parse::<i32>().expect("invalid status code");
