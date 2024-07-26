@@ -18,7 +18,7 @@ fn main() {
 
         let path = env::var("PATH").expect("PATH env not defined");
 
-        let args: Vec<&str> = input.trim_end().split_whitespace().collect();
+        let args: Vec<&str> = input.split_whitespace().collect();
         let cmd = args[0];
 
         let builtin = match to_builtin(cmd) {
@@ -101,7 +101,7 @@ fn main() {
                     }
                 }
 
-                if let Err(_) = set_current_dir(path.clone()) {
+                if set_current_dir(path.clone()).is_err() {
                     eprintln!("cd: {}: No such file or directory", path.display());
                 }
             }
