@@ -1,8 +1,7 @@
 use std::env::{self, current_dir, set_current_dir};
 use std::io::{self, Write};
 use std::path::{Path, PathBuf};
-use std::process::exit;
-use std::process::Command;
+use std::process;
 
 use home::home_dir;
 
@@ -22,100 +21,45 @@ fn main() {
         let cmd = args[0];
 
         match cmd.to_shell_cmd() {
-            ShellCmd::Program => {
-                exec_program(cmd, args, path);
-            }
             ShellCmd::Builtin(kind) => match kind {
                 BuiltinCmd::Echo => {
-                    let echo = args[1..].join(" ");
-                    println!("{}", echo);
+                    echo(args);
                 }
                 BuiltinCmd::Type => {
-                    let binary = args[1];
-                    match binary.to_shell_cmd() {
-                        ShellCmd::Builtin(_) => println!("{} is a shell builtin", binary),
-                        ShellCmd::Program => {
-                            let mut dirs = path.split(':');
-                            if let Some(dir) = dirs.find(|&dir| {
-                                Path::new(format!("{}/{}", dir, binary).as_str())
-                                    .try_exists()
-                                    .is_ok_and(|res| res)
-                            }) {
-                                let path = format!("{}/{}", dir, binary);
-                                println!("{} is {}", binary, path);
-                            } else {
-                                eprintln!("{}: not found", binary.trim_end());
-                            }
-                        }
-                    };
+                    type_of(args[1], path);
                 }
-                BuiltinCmd::Pwd => match current_dir() {
-                    Ok(path) => println!("{}", path.display()),
-                    Err(e) => println!("{}", e),
-                },
-                BuiltinCmd::Cd => {
-                    // gets path from arguments, if it's not provided defaults to the current directory
-                    let mut path = args
-                        .get(1)
-                        .map(PathBuf::from)
-                        .unwrap_or_else(|| current_dir().unwrap());
-
-                    if path.clone().starts_with("~") {
-                        path = match home_dir() {
-                            Some(home_dir) => match path.strip_prefix("~") {
-                                Ok(stripped) => home_dir.join(stripped),
-                                Err(_) => {
-                                    eprintln!("failed to strip prefix from path");
-                                    continue;
-                                }
-                            },
-                            None => {
-                                eprintln!("Home directory not found");
-                                continue;
-                            }
-                        }
-                    }
-
-                    if set_current_dir(path.clone()).is_err() {
-                        eprintln!("cd: {}: No such file or directory", path.display());
-                    }
+                BuiltinCmd::Pwd => {
+                    pwd();
                 }
+                BuiltinCmd::Cd => cd(args.get(1)),
                 BuiltinCmd::Exit => {
                     if let Some(status_code) = args.get(1) {
                         let status_code = status_code.parse::<i32>().expect("invalid status code");
                         exit(status_code);
                     }
-                    exit(1);
+                    exit(0);
                 }
             },
+            ShellCmd::Program => {
+                exec_program(cmd, args, path);
+            }
         }
     }
 }
 
-fn exec_program(cmd: &str, args: Vec<&str>, path: String) {
-    // check if the command is a binary stored in one of the PATH directories
-    let mut dirs = path.split(':');
+#[derive(Debug)]
+enum ShellCmd {
+    Builtin(BuiltinCmd),
+    Program,
+}
 
-    if let Some(dir) = dirs.find(|&dir| {
-        Path::new(format!("{}/{}", dir, cmd).as_str())
-            .try_exists()
-            .is_ok_and(|res| res) // check that the binary exists for the given path
-    }) {
-        // set executable args
-        let mut cmd_args = "";
-        if args.len() > 1 {
-            cmd_args = args[1];
-        }
-
-        // run the executable
-        Command::new(format!("{}/{}", dir, cmd))
-            .arg(cmd_args)
-            .status()
-            .expect("failed to execute process");
-    } else {
-        // binary not found in any PATH dir
-        eprintln!("{}: command not found", cmd.trim_end());
-    }
+#[derive(Debug)]
+enum BuiltinCmd {
+    Echo,
+    Type,
+    Exit,
+    Pwd,
+    Cd,
 }
 
 trait ShellCmdExt {
@@ -135,17 +79,91 @@ impl ShellCmdExt for &str {
     }
 }
 
-#[derive(Debug)]
-enum ShellCmd {
-    Builtin(BuiltinCmd),
-    Program,
+fn echo(args: Vec<&str>) {
+    let echo = args[1..].join(" ");
+    println!("{}", echo);
 }
 
-#[derive(Debug)]
-enum BuiltinCmd {
-    Echo,
-    Type,
-    Exit,
-    Pwd,
-    Cd,
+fn pwd() {
+    match current_dir() {
+        Ok(path) => println!("{}", path.display()),
+        Err(e) => eprintln!("{}", e),
+    }
+}
+
+fn cd(path: Option<&&str>) {
+    // gets path from arguments, if it's not provided defaults to the current directory
+    let mut path = path
+        .map(PathBuf::from)
+        .unwrap_or_else(|| current_dir().unwrap());
+
+    if path.clone().starts_with("~") {
+        path = match home_dir() {
+            Some(home_dir) => match path.strip_prefix("~") {
+                Ok(stripped) => home_dir.join(stripped),
+                Err(_) => {
+                    eprintln!("failed to strip prefix from path");
+                    return;
+                }
+            },
+            None => {
+                eprintln!("Home directory not found");
+                return;
+            }
+        }
+    }
+
+    if set_current_dir(path.clone()).is_err() {
+        eprintln!("cd: {}: No such file or directory", path.display());
+    }
+}
+
+fn type_of(program: &str, path: String) {
+    match program.to_shell_cmd() {
+        ShellCmd::Builtin(_) => println!("{} is a shell builtin", program),
+        ShellCmd::Program => {
+            let mut dirs = path.split(':');
+
+            if let Some(dir) = dirs.find(|&dir| {
+                Path::new(format!("{}/{}", dir, program).as_str())
+                    .try_exists()
+                    .is_ok_and(|res| res)
+            }) {
+                let path = format!("{}/{}", dir, program);
+                println!("{} is {}", program, path);
+            } else {
+                eprintln!("{}: not found", program.trim_end());
+            }
+        }
+    };
+}
+
+fn exit(code: i32) {
+    process::exit(code);
+}
+
+fn exec_program(cmd: &str, args: Vec<&str>, path: String) {
+    // check if the command is a binary stored in one of the PATH directories
+    let mut dirs = path.split(':');
+
+    if let Some(dir) = dirs.find(|&dir| {
+        Path::new(format!("{}/{}", dir, cmd).as_str())
+            .try_exists()
+            .is_ok_and(|res| res) // check that the binary exists for the given path
+    }) {
+        // set executable args
+        let mut cmd_args = "";
+        if args.len() > 1 {
+            cmd_args = args[1];
+        }
+
+        // run the executable
+        process::Command::new(format!("{}/{}", dir, cmd))
+            .arg(cmd_args)
+            .status()
+            .expect("failed to execute process");
+    } else {
+        // binary not found in any PATH dir
+        eprintln!("{}: command not found", cmd.trim_end());
+    }
 }
