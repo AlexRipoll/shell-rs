@@ -42,8 +42,10 @@ fn main() {
                                 let mut found = false;
                                 for dir in dirs {
                                     if is_in_dir(arg, dir) {
-                                        println!("{} is {:?}", arg, dir);
+                                        let path = dir.join(arg);
+                                        println!("{} is {}", arg, path.display());
                                         found = true;
+
                                         break;
                                     }
                                 }
