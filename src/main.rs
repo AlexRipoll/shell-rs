@@ -30,31 +30,22 @@ fn main() {
                 println!("{}", echo);
             }
             Builtin::Type => {
-                let arg = parsed_input[1];
-                match builtin(arg) {
-                    Ok(_) => println!("{} is a shell builtin", arg),
+                let cmd = parsed_input[1];
+                match builtin(cmd) {
+                    Ok(_) => println!("{} is a shell builtin", cmd),
                     Err(_) => {
-                        match env::var("PATH") {
-                            Ok(path) => {
-                                let dirs: Vec<&Path> =
-                                    path.split(':').map(|s| Path::new(s)).collect();
-
-                                let mut found = false;
-                                for dir in dirs {
-                                    if is_in_dir(arg, dir) {
-                                        let path = dir.join(arg);
-                                        println!("{} is {}", arg, path.display());
-                                        found = true;
-
-                                        break;
-                                    }
-                                }
-                                if !found {
-                                    eprintln!("{}: not found", arg.trim_end());
-                                }
-                            }
-                            Err(e) => panic!("{}", e),
-                        };
+                        let path = env::var("PATH").expect("PATH env not defined");
+                        let mut dirs = path.split(':');
+                        if let Some(dir) = dirs.find(|&dir| {
+                            Path::new(format!("{}/{}", dir, cmd).as_str())
+                                .try_exists()
+                                .is_ok_and(|res| res)
+                        }) {
+                            let path = format!("{}/{}", dir, cmd);
+                            println!("{} is {}", cmd, path);
+                        } else {
+                            eprintln!("{}: not found", cmd.trim_end());
+                        }
                     }
                 };
             }
@@ -83,16 +74,4 @@ enum Builtin {
     Echo,
     Type,
     Exit,
-}
-
-fn is_in_dir(file: &str, dir: &Path) -> bool {
-    if dir.is_dir() {
-        for entry in read_dir(dir).unwrap() {
-            let entry = entry.unwrap();
-            if entry.file_name() == file {
-                return true;
-            }
-        }
-    }
-    false
 }
