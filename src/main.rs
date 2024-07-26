@@ -1,6 +1,6 @@
-use std::env::{self, current_dir};
+use std::env::{self, current_dir, set_current_dir};
 use std::io::{self, Write};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::process::exit;
 use std::process::Command;
 
@@ -76,6 +76,16 @@ fn main() {
                 Ok(path) => println!("{}", path.display()),
                 Err(e) => println!("{}", e),
             },
+            Builtin::Cd => {
+                // gets path from arguments, if it's not provided defaults to the current directory
+                let path = args
+                    .get(1)
+                    .map(PathBuf::from)
+                    .unwrap_or_else(|| current_dir().unwrap());
+                if let Err(_) = set_current_dir(path.clone()) {
+                    eprintln!("cd: {}: No such file or directory", path.display());
+                }
+            }
             Builtin::Exit => {
                 if let Some(status_code) = args.get(1) {
                     let status_code = status_code.parse::<i32>().expect("invalid status code");
@@ -93,6 +103,7 @@ fn to_builtin(input: &str) -> Result<Builtin, &str> {
         "type" => Ok(Builtin::Type),
         "exit" => Ok(Builtin::Exit),
         "pwd" => Ok(Builtin::Pwd),
+        "cd" => Ok(Builtin::Cd),
         _ => Err("not a builtin"),
     }
 }
@@ -103,4 +114,5 @@ enum Builtin {
     Type,
     Exit,
     Pwd,
+    Cd,
 }
