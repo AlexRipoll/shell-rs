@@ -1,8 +1,8 @@
-use std::env;
-use std::io::{self, stdout, Write};
+use std::env::{self, current_dir};
+use std::io::{self, Write};
 use std::path::Path;
+use std::process::exit;
 use std::process::Command;
-use std::process::{exit, Stdio};
 
 fn main() {
     loop {
@@ -72,6 +72,10 @@ fn main() {
                     }
                 };
             }
+            Builtin::Pwd => match current_dir() {
+                Ok(path) => println!("{}", path.display()),
+                Err(e) => println!("{}", e),
+            },
             Builtin::Exit => {
                 if let Some(status_code) = args.get(1) {
                     let status_code = status_code.parse::<i32>().expect("invalid status code");
@@ -88,6 +92,7 @@ fn to_builtin(input: &str) -> Result<Builtin, &str> {
         "echo" => Ok(Builtin::Echo),
         "type" => Ok(Builtin::Type),
         "exit" => Ok(Builtin::Exit),
+        "pwd" => Ok(Builtin::Pwd),
         _ => Err("not a builtin"),
     }
 }
@@ -97,4 +102,5 @@ enum Builtin {
     Echo,
     Type,
     Exit,
+    Pwd,
 }
