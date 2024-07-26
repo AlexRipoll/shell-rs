@@ -30,7 +30,7 @@ fn main() {
                 match builtin(parsed_input[1]) {
                     Ok(_) => println!("{} is a shell builtin", parsed_input[1]),
                     Err(_) => {
-                        eprintln!("{}: command not found", parsed_input[1].trim_end());
+                        eprintln!("{}: not found", parsed_input[1].trim_end());
                     }
                 };
             }
