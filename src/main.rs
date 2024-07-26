@@ -1,5 +1,8 @@
+use core::panic;
+use std::fs::read_dir;
 use std::io::{self, Write};
-use std::process;
+use std::path::Path;
+use std::{env, process};
 
 fn main() {
     loop {
@@ -27,10 +30,29 @@ fn main() {
                 println!("{}", echo);
             }
             Builtin::Type => {
-                match builtin(parsed_input[1]) {
-                    Ok(_) => println!("{} is a shell builtin", parsed_input[1]),
+                let arg = parsed_input[1];
+                match builtin(arg) {
+                    Ok(_) => println!("{} is a shell builtin", arg),
                     Err(_) => {
-                        eprintln!("{}: not found", parsed_input[1].trim_end());
+                        match env::var("PATH") {
+                            Ok(path) => {
+                                let dirs: Vec<&Path> =
+                                    path.split(':').map(|s| Path::new(s)).collect();
+
+                                let mut found = false;
+                                for dir in dirs {
+                                    if is_in_dir(arg, dir) {
+                                        println!("{} is {:?}", arg, dir);
+                                        found = true;
+                                        break;
+                                    }
+                                }
+                                if !found {
+                                    eprintln!("{}: not found", arg.trim_end());
+                                }
+                            }
+                            Err(e) => panic!("{}", e),
+                        };
                     }
                 };
             }
@@ -59,4 +81,16 @@ enum Builtin {
     Echo,
     Type,
     Exit,
+}
+
+fn is_in_dir(file: &str, dir: &Path) -> bool {
+    if dir.is_dir() {
+        for entry in read_dir(dir).unwrap() {
+            let entry = entry.unwrap();
+            if entry.file_name() == file {
+                return true;
+            }
+        }
+    }
+    false
 }
