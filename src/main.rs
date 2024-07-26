@@ -21,9 +21,8 @@ fn main() {
         let args: Vec<&str> = input.split_whitespace().collect();
         let cmd = args[0];
 
-        let builtin = match to_builtin(cmd) {
-            Ok(x) => x,
-            Err(_) => {
+        match cmd.to_shell_cmd() {
+            ShellCmd::Program => {
                 // check if the first argument is a binary stored in one of the PATH directoires
                 let mut dirs = path.split(':');
                 if let Some(dir) = dirs.find(|&dir| {
@@ -45,90 +44,99 @@ fn main() {
                 } else {
                     eprintln!("{}: command not found", cmd.trim_end());
                 }
-
-                continue;
             }
-        };
-
-        match builtin {
-            Builtin::Echo => {
-                let echo = args[1..].join(" ");
-                println!("{}", echo);
-            }
-            Builtin::Type => {
-                let binary = args[1];
-                match to_builtin(binary) {
-                    Ok(_) => println!("{} is a shell builtin", binary),
-                    Err(_) => {
-                        let mut dirs = path.split(':');
-                        if let Some(dir) = dirs.find(|&dir| {
-                            Path::new(format!("{}/{}", dir, binary).as_str())
-                                .try_exists()
-                                .is_ok_and(|res| res)
-                        }) {
-                            let path = format!("{}/{}", dir, binary);
-                            println!("{} is {}", binary, path);
-                        } else {
-                            eprintln!("{}: not found", binary.trim_end());
+            ShellCmd::Builtin(kind) => match kind {
+                BuiltinCmd::Echo => {
+                    let echo = args[1..].join(" ");
+                    println!("{}", echo);
+                }
+                BuiltinCmd::Type => {
+                    let binary = args[1];
+                    match binary.to_shell_cmd() {
+                        ShellCmd::Builtin(_) => println!("{} is a shell builtin", binary),
+                        ShellCmd::Program => {
+                            let mut dirs = path.split(':');
+                            if let Some(dir) = dirs.find(|&dir| {
+                                Path::new(format!("{}/{}", dir, binary).as_str())
+                                    .try_exists()
+                                    .is_ok_and(|res| res)
+                            }) {
+                                let path = format!("{}/{}", dir, binary);
+                                println!("{} is {}", binary, path);
+                            } else {
+                                eprintln!("{}: not found", binary.trim_end());
+                            }
                         }
-                    }
-                };
-            }
-            Builtin::Pwd => match current_dir() {
-                Ok(path) => println!("{}", path.display()),
-                Err(e) => println!("{}", e),
-            },
-            Builtin::Cd => {
-                // gets path from arguments, if it's not provided defaults to the current directory
-                let mut path = args
-                    .get(1)
-                    .map(PathBuf::from)
-                    .unwrap_or_else(|| current_dir().unwrap());
+                    };
+                }
+                BuiltinCmd::Pwd => match current_dir() {
+                    Ok(path) => println!("{}", path.display()),
+                    Err(e) => println!("{}", e),
+                },
+                BuiltinCmd::Cd => {
+                    // gets path from arguments, if it's not provided defaults to the current directory
+                    let mut path = args
+                        .get(1)
+                        .map(PathBuf::from)
+                        .unwrap_or_else(|| current_dir().unwrap());
 
-                if path.clone().starts_with("~") {
-                    path = match home_dir() {
-                        Some(home_dir) => match path.strip_prefix("~") {
-                            Ok(stripped) => home_dir.join(stripped),
-                            Err(_) => {
-                                eprintln!("failed to strip prefix from path");
+                    if path.clone().starts_with("~") {
+                        path = match home_dir() {
+                            Some(home_dir) => match path.strip_prefix("~") {
+                                Ok(stripped) => home_dir.join(stripped),
+                                Err(_) => {
+                                    eprintln!("failed to strip prefix from path");
+                                    continue;
+                                }
+                            },
+                            None => {
+                                eprintln!("Home directory not found");
                                 continue;
                             }
-                        },
-                        None => {
-                            eprintln!("Home directory not found");
-                            continue;
                         }
                     }
-                }
 
-                if set_current_dir(path.clone()).is_err() {
-                    eprintln!("cd: {}: No such file or directory", path.display());
+                    if set_current_dir(path.clone()).is_err() {
+                        eprintln!("cd: {}: No such file or directory", path.display());
+                    }
                 }
-            }
-            Builtin::Exit => {
-                if let Some(status_code) = args.get(1) {
-                    let status_code = status_code.parse::<i32>().expect("invalid status code");
-                    exit(status_code);
+                BuiltinCmd::Exit => {
+                    if let Some(status_code) = args.get(1) {
+                        let status_code = status_code.parse::<i32>().expect("invalid status code");
+                        exit(status_code);
+                    }
+                    exit(1);
                 }
-                exit(1);
-            }
+            },
         }
     }
 }
 
-fn to_builtin(input: &str) -> Result<Builtin, &str> {
-    match input {
-        "echo" => Ok(Builtin::Echo),
-        "type" => Ok(Builtin::Type),
-        "exit" => Ok(Builtin::Exit),
-        "pwd" => Ok(Builtin::Pwd),
-        "cd" => Ok(Builtin::Cd),
-        _ => Err("not a builtin"),
+trait ShellCmdExt {
+    fn to_shell_cmd(&self) -> ShellCmd;
+}
+
+impl ShellCmdExt for &str {
+    fn to_shell_cmd(&self) -> ShellCmd {
+        match *self {
+            "echo" => ShellCmd::Builtin(BuiltinCmd::Echo),
+            "type" => ShellCmd::Builtin(BuiltinCmd::Type),
+            "exit" => ShellCmd::Builtin(BuiltinCmd::Exit),
+            "pwd" => ShellCmd::Builtin(BuiltinCmd::Pwd),
+            "cd" => ShellCmd::Builtin(BuiltinCmd::Cd),
+            _ => ShellCmd::Program,
+        }
     }
 }
 
 #[derive(Debug)]
-enum Builtin {
+enum ShellCmd {
+    Builtin(BuiltinCmd),
+    Program,
+}
+
+#[derive(Debug)]
+enum BuiltinCmd {
     Echo,
     Type,
     Exit,
