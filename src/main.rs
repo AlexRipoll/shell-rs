@@ -82,6 +82,7 @@ fn main() {
                     .get(1)
                     .map(PathBuf::from)
                     .unwrap_or_else(|| current_dir().unwrap());
+
                 if let Err(_) = set_current_dir(path.clone()) {
                     eprintln!("cd: {}: No such file or directory", path.display());
                 }
