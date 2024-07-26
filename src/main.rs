@@ -40,7 +40,7 @@ fn main() {
                     exit(0);
                 }
             },
-            ShellCmd::Program => {
+            ShellCmd::Binary => {
                 exec_program(cmd, args, path);
             }
         }
@@ -50,7 +50,7 @@ fn main() {
 #[derive(Debug)]
 enum ShellCmd {
     Builtin(BuiltinCmd),
-    Program,
+    Binary,
 }
 
 #[derive(Debug)]
@@ -74,7 +74,7 @@ impl ShellCmdExt for &str {
             "exit" => ShellCmd::Builtin(BuiltinCmd::Exit),
             "pwd" => ShellCmd::Builtin(BuiltinCmd::Pwd),
             "cd" => ShellCmd::Builtin(BuiltinCmd::Cd),
-            _ => ShellCmd::Program,
+            _ => ShellCmd::Binary,
         }
     }
 }
@@ -121,7 +121,7 @@ fn cd(path: Option<&&str>) {
 fn type_of(program: &str, path: String) {
     match program.to_shell_cmd() {
         ShellCmd::Builtin(_) => println!("{} is a shell builtin", program),
-        ShellCmd::Program => {
+        ShellCmd::Binary => {
             let mut dirs = path.split(':');
 
             if let Some(dir) = dirs.find(|&dir| {
