@@ -36,12 +36,10 @@ fn main() {
                         cmd_args = args[1];
                     }
 
-                    let output = Command::new(cmd_path)
+                    Command::new(cmd_path)
                         .arg(cmd_args)
                         .status()
                         .expect("failed to execute process");
-
-                    println!("{}", output);
                 } else {
                     eprintln!("{}: command not found", cmd.trim_end());
                 }
