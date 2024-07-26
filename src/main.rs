@@ -23,27 +23,7 @@ fn main() {
 
         match cmd.to_shell_cmd() {
             ShellCmd::Program => {
-                // check if the first argument is a binary stored in one of the PATH directoires
-                let mut dirs = path.split(':');
-                if let Some(dir) = dirs.find(|&dir| {
-                    Path::new(format!("{}/{}", dir, cmd).as_str())
-                        .try_exists()
-                        .is_ok_and(|res| res)
-                }) {
-                    let cmd_path = format!("{}/{}", dir, cmd);
-
-                    let mut cmd_args = "";
-                    if args.len() > 1 {
-                        cmd_args = args[1];
-                    }
-
-                    Command::new(cmd_path)
-                        .arg(cmd_args)
-                        .status()
-                        .expect("failed to execute process");
-                } else {
-                    eprintln!("{}: command not found", cmd.trim_end());
-                }
+                exec_program(cmd, args, path);
             }
             ShellCmd::Builtin(kind) => match kind {
                 BuiltinCmd::Echo => {
@@ -109,6 +89,32 @@ fn main() {
                 }
             },
         }
+    }
+}
+
+fn exec_program(cmd: &str, args: Vec<&str>, path: String) {
+    // check if the command is a binary stored in one of the PATH directories
+    let mut dirs = path.split(':');
+
+    if let Some(dir) = dirs.find(|&dir| {
+        Path::new(format!("{}/{}", dir, cmd).as_str())
+            .try_exists()
+            .is_ok_and(|res| res) // check that the binary exists for the given path
+    }) {
+        // set executable args
+        let mut cmd_args = "";
+        if args.len() > 1 {
+            cmd_args = args[1];
+        }
+
+        // run the executable
+        Command::new(format!("{}/{}", dir, cmd))
+            .arg(cmd_args)
+            .status()
+            .expect("failed to execute process");
+    } else {
+        // binary not found in any PATH dir
+        eprintln!("{}: command not found", cmd.trim_end());
     }
 }
 
