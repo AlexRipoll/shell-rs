@@ -4,6 +4,8 @@ use std::path::{Path, PathBuf};
 use std::process::exit;
 use std::process::Command;
 
+use home::home_dir;
+
 fn main() {
     loop {
         print!("$ ");
@@ -78,10 +80,26 @@ fn main() {
             },
             Builtin::Cd => {
                 // gets path from arguments, if it's not provided defaults to the current directory
-                let path = args
+                let mut path = args
                     .get(1)
                     .map(PathBuf::from)
                     .unwrap_or_else(|| current_dir().unwrap());
+
+                if path.clone().starts_with("~") {
+                    path = match home_dir() {
+                        Some(home_dir) => match path.strip_prefix("~") {
+                            Ok(stripped) => home_dir.join(stripped),
+                            Err(_) => {
+                                eprintln!("failed to strip prefix from path");
+                                continue;
+                            }
+                        },
+                        None => {
+                            eprintln!("Home directory not found");
+                            continue;
+                        }
+                    }
+                }
 
                 if let Err(_) = set_current_dir(path.clone()) {
                     eprintln!("cd: {}: No such file or directory", path.display());
