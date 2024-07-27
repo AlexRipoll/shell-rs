@@ -41,7 +41,7 @@ fn main() {
                 }
             },
             ShellCmd::Binary => {
-                exec_program(cmd, args, path.as_str());
+                exec_binary(cmd, args, path.as_str());
             }
         }
     }
@@ -125,15 +125,15 @@ fn cd(dir: &str) {
     }
 }
 
-fn type_of(program: &str, path: &str) {
-    match program.to_shell_cmd() {
-        ShellCmd::Builtin(_) => println!("{} is a shell builtin", program),
+fn type_of(cmd: &str, path: &str) {
+    match cmd.to_shell_cmd() {
+        ShellCmd::Builtin(_) => println!("{} is a shell builtin", cmd),
         ShellCmd::Binary => {
-            if let Some(dir) = search_in_path(program, path) {
-                let path = format!("{}/{}", dir, program);
-                println!("{} is {}", program, path);
+            if let Some(dir) = search_in_path(cmd, path) {
+                let path = format!("{}/{}", dir, cmd);
+                println!("{} is {}", cmd, path);
             } else {
-                eprintln!("{}: not found", program.trim_end());
+                eprintln!("{}: not found", cmd.trim_end());
             }
         }
     };
@@ -143,7 +143,7 @@ fn exit(code: i32) {
     process::exit(code);
 }
 
-fn exec_program(cmd: &str, args: Vec<&str>, path: &str) {
+fn exec_binary(cmd: &str, args: Vec<&str>, path: &str) {
     // check if the command is a binary stored in one of the PATH directories
     if let Some(dir) = search_in_path(cmd, path) {
         // set executable args
@@ -163,9 +163,9 @@ fn exec_program(cmd: &str, args: Vec<&str>, path: &str) {
     }
 }
 
-fn search_in_path<'a>(program: &str, path: &'a str) -> Option<&'a str> {
+fn search_in_path<'a>(binary: &str, path: &'a str) -> Option<&'a str> {
     path.split(':').find(|dir| {
-        let program_path = format!("{}/{}", dir, program);
-        Path::new(&program_path).try_exists().unwrap_or(false)
+        let binary_path = format!("{}/{}", dir, binary);
+        Path::new(&binary_path).try_exists().unwrap_or(false)
     })
 }
