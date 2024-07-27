@@ -23,7 +23,7 @@ fn main() {
         match cmd.to_shell_cmd() {
             ShellCmd::Builtin(kind) => match kind {
                 BuiltinCmd::Echo => {
-                    echo(args);
+                    echo(args[1..].to_vec());
                 }
                 BuiltinCmd::Type => {
                     type_of(args[1], path);
@@ -31,7 +31,7 @@ fn main() {
                 BuiltinCmd::Pwd => {
                     pwd();
                 }
-                BuiltinCmd::Cd => cd(args.get(1)),
+                BuiltinCmd::Cd => cd(args[1]),
                 BuiltinCmd::Exit => {
                     if let Some(status_code) = args.get(1) {
                         let status_code = status_code.parse::<i32>().expect("invalid status code");
@@ -80,8 +80,7 @@ impl ShellCmdExt for &str {
 }
 
 fn echo(args: Vec<&str>) {
-    let echo = args[1..].join(" ");
-    println!("{}", echo);
+    println!("{}", args.join(" "));
 }
 
 fn pwd() {
@@ -91,13 +90,21 @@ fn pwd() {
     }
 }
 
-fn cd(path: Option<&&str>) {
+fn cd(dir: &str) {
     // gets path from arguments, if it's not provided defaults to the current directory
-    let mut path = path
-        .map(PathBuf::from)
-        .unwrap_or_else(|| current_dir().unwrap());
+    let mut path = if dir.is_empty() {
+        match current_dir() {
+            Ok(current_dir) => current_dir,
+            Err(e) => {
+                eprintln!("{}", e);
+                return;
+            }
+        }
+    } else {
+        PathBuf::from(dir)
+    };
 
-    if path.clone().starts_with("~") {
+    if path.starts_with("~") {
         path = match home_dir() {
             Some(home_dir) => match path.strip_prefix("~") {
                 Ok(stripped) => home_dir.join(stripped),
@@ -107,7 +114,7 @@ fn cd(path: Option<&&str>) {
                 }
             },
             None => {
-                eprintln!("Home directory not found");
+                eprintln!("HOME directory not found");
                 return;
             }
         }
