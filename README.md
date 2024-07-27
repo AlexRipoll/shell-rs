@@ -1,3 +1,5 @@
+# shell-rs
+
 Solution for the ["Build Your Own Shell" Challenge](https://app.codecrafters.io/courses/shell/overview), where you build your own POSIX compliant shell that's capable of
 interpreting shell commands, running external programs and builtin commands. The current builtin command implemented are:
 
