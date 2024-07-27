@@ -26,7 +26,7 @@ fn main() {
                     echo(args[1..].to_vec());
                 }
                 BuiltinCmd::Type => {
-                    type_of(args[1], path);
+                    type_of(args[1], path.as_str());
                 }
                 BuiltinCmd::Pwd => {
                     pwd();
@@ -41,7 +41,7 @@ fn main() {
                 }
             },
             ShellCmd::Binary => {
-                exec_program(cmd, args, path);
+                exec_program(cmd, args, path.as_str());
             }
         }
     }
@@ -125,17 +125,11 @@ fn cd(dir: &str) {
     }
 }
 
-fn type_of(program: &str, path: String) {
+fn type_of(program: &str, path: &str) {
     match program.to_shell_cmd() {
         ShellCmd::Builtin(_) => println!("{} is a shell builtin", program),
         ShellCmd::Binary => {
-            let mut dirs = path.split(':');
-
-            if let Some(dir) = dirs.find(|&dir| {
-                Path::new(format!("{}/{}", dir, program).as_str())
-                    .try_exists()
-                    .is_ok_and(|res| res)
-            }) {
+            if let Some(dir) = search_in_path(program, path) {
                 let path = format!("{}/{}", dir, program);
                 println!("{} is {}", program, path);
             } else {
@@ -149,15 +143,9 @@ fn exit(code: i32) {
     process::exit(code);
 }
 
-fn exec_program(cmd: &str, args: Vec<&str>, path: String) {
+fn exec_program(cmd: &str, args: Vec<&str>, path: &str) {
     // check if the command is a binary stored in one of the PATH directories
-    let mut dirs = path.split(':');
-
-    if let Some(dir) = dirs.find(|&dir| {
-        Path::new(format!("{}/{}", dir, cmd).as_str())
-            .try_exists()
-            .is_ok_and(|res| res) // check that the binary exists for the given path
-    }) {
+    if let Some(dir) = search_in_path(cmd, path) {
         // set executable args
         let mut cmd_args = "";
         if args.len() > 1 {
@@ -173,4 +161,11 @@ fn exec_program(cmd: &str, args: Vec<&str>, path: String) {
         // binary not found in any PATH dir
         eprintln!("{}: command not found", cmd.trim_end());
     }
+}
+
+fn search_in_path<'a>(program: &str, path: &'a str) -> Option<&'a str> {
+    path.split(':').find(|dir| {
+        let program_path = format!("{}/{}", dir, program);
+        Path::new(&program_path).try_exists().unwrap_or(false)
+    })
 }
