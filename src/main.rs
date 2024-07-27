@@ -63,6 +63,7 @@ enum BuiltinCmd {
 }
 
 trait ShellCmdExt {
+    /// Converts a command string to a `ShellCmd` variant.
     fn to_shell_cmd(&self) -> ShellCmd;
 }
 
@@ -79,10 +80,17 @@ impl ShellCmdExt for &str {
     }
 }
 
+/// Executes the `echo` built-in command, which prints its arguments to the standard output.
+///
+/// # Arguments
+///
+/// * `args` - A vector of arguments to be printed.
 fn echo(args: Vec<&str>) {
     println!("{}", args.join(" "));
 }
 
+/// Executes the `pwd` built-in command, which prints the current working directory.
+/// It handles errors that may occur while retrieving the current directory.
 fn pwd() {
     match current_dir() {
         Ok(path) => println!("{}", path.display()),
@@ -90,6 +98,13 @@ fn pwd() {
     }
 }
 
+/// Executes the `cd` built-in command, which changes the current working directory.
+/// If the provided directory is empty, it defaults to the current directory.
+/// It supports tilde (`~`) expansion for the home directory and handles errors that may occur.
+///
+/// # Arguments
+///
+/// * `dir` - The directory to change to. If empty, defaults to the current directory.
 fn cd(dir: &str) {
     // gets path from arguments, if it's not provided defaults to the current directory
     let mut path = if dir.is_empty() {
@@ -125,6 +140,12 @@ fn cd(dir: &str) {
     }
 }
 
+/// Executes the `type` built-in command, which prints whether the command is a built-in or a binary.
+///
+/// # Arguments
+///
+/// * `cmd` - The command to check.
+/// * `path` - The PATH environment variable to search for the command.
 fn type_of(cmd: &str, path: &str) {
     match cmd.to_shell_cmd() {
         ShellCmd::Builtin(_) => println!("{} is a shell builtin", cmd),
@@ -139,10 +160,22 @@ fn type_of(cmd: &str, path: &str) {
     };
 }
 
+/// Exits the shell with the specified exit code.
+///
+/// # Arguments
+///
+/// * `code` - The exit status code.
 fn exit(code: i32) {
     process::exit(code);
 }
 
+/// Executes an external binary command found in the PATH directories.
+///
+/// # Arguments
+///
+/// * `cmd` - The command to execute.
+/// * `args` - A vector of arguments to pass to the command.
+/// * `path` - The PATH environment variable to search for the command.
 fn exec_binary(cmd: &str, args: Vec<&str>, path: &str) {
     // check if the command is a binary stored in one of the PATH directories
     if let Some(dir) = search_in_path(cmd, path) {
@@ -163,6 +196,16 @@ fn exec_binary(cmd: &str, args: Vec<&str>, path: &str) {
     }
 }
 
+/// Searches for a binary executable in the directories specified by the PATH environment variable.
+///
+/// # Arguments
+///
+/// * `binary` - The name of the binary to search for.
+/// * `path` - The PATH environment variable to search in.
+///
+/// # Returns
+///
+/// Returns an `Option<&str>` containing the directory where the binary was found, or `None` if not found.
 fn search_in_path<'a>(binary: &str, path: &'a str) -> Option<&'a str> {
     path.split(':').find(|dir| {
         let binary_path = format!("{}/{}", dir, binary);
